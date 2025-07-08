@@ -20,7 +20,7 @@ export class LocalFSMediaFile implements IAsyncMediaFile {
     }
 
     get identifier(): string {
-        return this.path;
+        return `LocalFSMediaFile:${this.path}`;
     }
 
     // biome-ignore lint/suspicious/useAwait: Interface is async
@@ -50,7 +50,7 @@ export class HttpMediaFile implements IAsyncMediaFile {
     private metaCache: undefined | MediaMetaHeaders | Promise<MediaMetaHeaders>;
 
     get identifier(): string {
-        return this.url;
+        return `HttpMediaFile:${this.url}`;
     }
 
     private async getHeaders(): Promise<MediaMetaHeaders> {

@@ -10,6 +10,15 @@ const fHttp = new HttpMediaFile(
     "https://ubel.weebify.tv/gimai-seikatsu-s01e01.mp4"
 );
 
-const p = new ISOBMFParser(await (process.env.REMOTE ? fHttp : fLocal).getView(0, 10_000_000));
+const file = process.env.REMOTE ? fHttp : fLocal;
 
-console.log(p.getChapters());
+const p = new ISOBMFParser(
+    await file.getView(0, 2_000_000)
+);
+
+try {
+    console.log(p.getChaptersInfo());
+} catch (e) {
+    console.log('failed!', e)
+}
+console.log([file.identifier,  ...p.getQuirks()]);

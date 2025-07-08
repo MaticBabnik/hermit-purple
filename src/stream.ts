@@ -30,6 +30,13 @@ export class StreamReader {
         return this.dv.getUint8(this.offset++);
     }
 
+    public readU16(): number {
+        this.assertRead(2);
+        const v = this.dv.getUint16(this.offset);
+        this.offset += 2;
+        return v;
+    }
+
     public readU32(): number {
         this.assertRead(4);
         const v = this.dv.getUint32(this.offset);
@@ -69,5 +76,9 @@ export class StreamReader {
 
     public readStrPU8() {
         return this.readStr(this.readU8());
+    }
+
+    public readStrPU16() {
+        return this.readStr(this.readU16());
     }
 }

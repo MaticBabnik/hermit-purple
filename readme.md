@@ -18,7 +18,7 @@ Provides an API for parsing a file's chapters into a WebVTT file. (TODO)
 
 ### Chapter formats
 - [x] Flash/Nero chapters (chpl box)
-- [ ] Quick Time chapters
+- [x] Quick Time chapters
 - [ ] Matroska chapters
   - [ ] Simple Chapters
   - [ ] Ordered Chapters ???
