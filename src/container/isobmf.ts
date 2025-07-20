@@ -1,5 +1,4 @@
-import { assert, nn } from "./common.ts";
-import { StreamReader } from "./stream.ts";
+import { assert, nn, StreamReader } from "../common";
 
 interface BoxHeader {
     /**
@@ -34,7 +33,7 @@ interface FullBoxHeader extends BoxHeader {
 }
 
 interface Chapter {
-    time: number;
+    start: number;
     title: string;
 }
 
@@ -222,7 +221,7 @@ export class ISOBMFParser {
         for (let i = 0, addr = chunkBase, time = 0; i < nChapters; i++) {
             sr.seek(addr);
             chapters.push({
-                time,
+                start: time,
                 title: sr.readStrPU16(),
             });
             time += nn(times[i]);
@@ -290,7 +289,7 @@ export class ISOBMFParser {
             const title = sr.readStrPU8();
 
             chapters.push({
-                time: Number(ts / 10000n) / 1000,
+                start: Number(ts / 10000n) / 1000,
                 title: title,
             });
         }

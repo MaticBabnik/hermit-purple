@@ -1,3 +1,9 @@
+/** biome-ignore-all lint/performance/noReExportAll: convenience */
+/** biome-ignore-all lint/performance/noBarrelFile: convenience */
+
+/**
+ * Asserts `cond`
+ */
 export function assert<T>(cond: T, msg?: string): asserts cond {
     if (!cond) throw new Error(`AssertionError: ${msg ?? "?"}`);
 }
@@ -5,7 +11,10 @@ export function assert<T>(cond: T, msg?: string): asserts cond {
 /**
  * Not null/undefined assertion
  */
-export function nn<T>(value: T | null | undefined, message?: string): T {
+export function nn<T>(
+    value: T | undefined | null,
+    message?: string
+): T {
     if (value === null) throw new Error(message ?? "value was null");
     if (value === undefined) throw new Error(message ?? "value was undefined");
     return value;
@@ -13,7 +22,6 @@ export function nn<T>(value: T | null | undefined, message?: string): T {
 
 /**
  * Assert alignment 32
- * @param n
  */
 export function aa32(n: number, what?: string) {
     assert(
@@ -24,8 +32,6 @@ export function aa32(n: number, what?: string) {
 
 /**
  * Assert alignment 64
- * @param n
- * @param what
  */
 export function aa64(n: number, what?: string) {
     assert(
@@ -33,3 +39,6 @@ export function aa64(n: number, what?: string) {
         `0x${n.toString(16)} is not aligned to 8 bytes (${what ?? "?"})`
     );
 }
+
+export * from "./file";
+export * from "./stream";

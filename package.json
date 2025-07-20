@@ -9,5 +9,8 @@
     },
     "peerDependencies": {
         "typescript": "^5"
+    },
+    "dependencies": {
+        "color": "^5.0.0"
     }
 }

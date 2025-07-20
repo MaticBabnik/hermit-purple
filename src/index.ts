@@ -1,24 +1,25 @@
 /** biome-ignore-all lint/suspicious/noConsole: Loggind */
-import { HttpMediaFile, LocalFSMediaFile } from "./file.ts";
-import { ISOBMFParser } from "./isobmf.ts";
+
+import { LocalFSMediaFile } from "./common";
+import { MatroskaParser } from "./container/matroska.ts";
 
 const fLocal = new LocalFSMediaFile(
-    "/home/babnik/Downloads/gimai-seikatsu-s01e01.mp4"
+    "/home/babnik/Downloads/domestic-girlfriend-01.webm"
 );
 
-const fHttp = new HttpMediaFile(
-    "https://ubel.weebify.tv/gimai-seikatsu-s01e01.mp4"
-);
+const p = new MatroskaParser(await fLocal.getView(0, 1_000_000));
+console.log(p.readHeader());
 
-const file = process.env.REMOTE ? fHttp : fLocal;
+const seg = p.readSegment();
+console.dir(seg, { depth: null });
 
-const p = new ISOBMFParser(
-    await file.getView(0, 2_000_000)
-);
+const ns = 1_000_000_000;
 
-try {
-    console.log(p.getChaptersInfo());
-} catch (e) {
-    console.log('failed!', e)
-}
-console.log([file.identifier,  ...p.getQuirks()]);
+const chapters = (seg as any).chapters.editions[0].chapters.map((c) => ({
+    start: c.start / ns,
+    end: c.end / ns,
+    title: c.display[0].string,
+}));
+
+
+console.log(chapters);

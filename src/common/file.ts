@@ -1,10 +1,27 @@
+import { assert } from ".";
+
 export interface IAsyncMediaFile {
+    /**
+     * Get file identifier (type + url/path)
+     */
     get identifier(): string;
 
+    /**
+     * Get the size of the whole file
+     */
     getTotalSize(): Promise<number>;
 
+    /**
+     * Gets the mimetype of the file
+     */
     getMime(): Promise<string>;
 
+    /**
+     * Gets a partial view of file
+     * @param offset offset from start
+     * @param size size of view
+     * @param requireAll fail if less than size is returned
+     */
     getView(
         offset: number,
         size: number,
@@ -34,8 +51,11 @@ export class LocalFSMediaFile implements IAsyncMediaFile {
     }
 
     async getView(offset: number, size: number, requireAll = false) {
-        void requireAll;
-        return await this.file.slice(offset, offset + size).arrayBuffer();
+        const view = await this.file.slice(offset, offset + size).arrayBuffer();
+
+        assert(!requireAll || view.byteLength === size);
+
+        return view;
     }
 }
 
@@ -99,9 +119,6 @@ export class HttpMediaFile implements IAsyncMediaFile {
         size: number,
         requireAll = false
     ): Promise<ArrayBuffer> {
-        // TODO(mbabnik): impl?
-        void requireAll;
-
         const res = await fetch(this.url, {
             method: "GET",
             headers: {
@@ -109,6 +126,10 @@ export class HttpMediaFile implements IAsyncMediaFile {
             },
         });
 
-        return await res.arrayBuffer();
+        const view =  await res.arrayBuffer();
+
+        assert(!requireAll || view.byteLength === size);
+
+        return view;
     }
 }
