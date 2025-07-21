@@ -113,6 +113,24 @@ export class StreamReader {
                 return this.readU24() & 0x1f_ff_ff;
             case 4:
                 return this.readU32() & 0x0f_ff_ff_ff;
+            case 5:
+            case 6:
+            case 7: {
+                const b = BigInt(this.readU32()) << BigInt((n - 4) * 8);
+
+                // TODO detect when the cast went wrong?
+                return Number(
+                    b |
+                        BigInt(
+                            n === 5
+                                ? this.readU8()
+                                : n === 6
+                                  ? this.readU16()
+                                  : this.readU24()
+                        )
+                );
+            }
+
             case 8: {
                 const n = this.readU64() & 0xff_ffff_ffff_ffffn;
                 const n32 = n & 0xffff_ffffn;
@@ -126,9 +144,23 @@ export class StreamReader {
             }
             default:
                 throw new StreamError(
-                    `Can't read vint(${n}) as I32`,
+                    `Can't read vint(${n}) as U32`,
                     this.offset
                 );
+        }
+    }
+
+    public readVLIU32_overflowOk() {
+        try {
+            return this.readVLIU32();
+        } catch (e) {
+            if (
+                e instanceof StreamError &&
+                e.message.startsWith("Can't cast U64")
+            ) {
+                return 0xffff_ffff; // large int that is probably bigger than the view
+            }
+            throw e;
         }
     }
 
@@ -151,17 +183,26 @@ export class StreamReader {
         }
     }
 
-    public readVLIBU() {
-        return 0;
+    public readF32(): number {
+        this.assertRead(4);
+        const v = this.dv.getFloat32(this.offset);
+        this.offset += 4;
+        return v;
     }
 
-    public readVLIBS() {
-        return 0;
+    public readF64(): number {
+        this.assertRead(8);
+        const v = this.dv.getFloat64(this.offset);
+        this.offset += 8;
+        return v;
     }
 }
 
 export class StreamError extends Error {
-    public constructor(what: string, public readonly at: number) {
+    public constructor(
+        what: string,
+        public readonly at: number
+    ) {
         super(what);
     }
 }

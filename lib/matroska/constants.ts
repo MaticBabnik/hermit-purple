@@ -37,7 +37,7 @@ export const MKVC = {
     MASTER: 0x08538067,
 
     TAG: 0x0254c367,
-    INFO: 0x0549a966,
+
     CUES: 0x0c53bb6b,
     TRACKS: 0x0654ae6b,
     CLUSTER: 0x0f43b675,
@@ -48,6 +48,13 @@ export const MKVC = {
         MASTER: 0x0dbb,
         ID: 0x13ab,
         POS: 0x13ac,
+    },
+
+    INFO: {
+        MASTER: 0x0549a966,
+
+        TIMESTAMP_SCALE: 0x0ad7b1,
+        DURATION: 0x0489,
     },
 
     CHAPTERS: {

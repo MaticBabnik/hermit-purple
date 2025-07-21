@@ -1,7 +1,7 @@
 import { StreamError, type StreamReader } from "../common";
-import { EBMLC, MKVC, SEGMENT_CHILD_ID_TO_NAME } from "../mkvconst";
+import { SEGMENT_CHILD_ID_TO_NAME } from "./constants";
 
-type ParserFun = (sr: StreamReader, id: number) => unknown;
+export type ParserFun = (sr: StreamReader, id: number) => unknown;
 
 // biome-ignore lint/suspicious/noConstEnum: Perf
 export const enum KN {
@@ -25,8 +25,7 @@ export function error(_: StreamReader, id: number): never {
 }
 
 export function ignore(r: StreamReader) {
-    // const xx = r.readVLIBU();
-    const x = r.readVLIU32();
+    const x = r.readVLIU32_overflowOk();
     r.skip(x);
 }
 
@@ -78,6 +77,7 @@ export function bool(r: StreamReader) {
 }
 
 const uint1 = uintD(1);
+
 export function boolT(r: StreamReader) {
     return !!uint1(r);
 }
@@ -96,7 +96,7 @@ export function seekheadId(r: StreamReader) {
 export function master(def: Record<number, DecType>, allowUnknown = true) {
     return (sr: StreamReader) => {
         const obj = {} as Record<string, unknown>;
-        const size = sr.readVLIU32();
+        const size = sr.readVLIU32_overflowOk();
         const end = sr.position + size;
 
         while (sr.position < end) {
@@ -151,99 +151,21 @@ export function master(def: Record<number, DecType>, allowUnknown = true) {
     };
 }
 
-export interface EBMLHead {
-    version: number;
-    readVersion: number;
-    maxIdLength: number;
-    maxSizeLength: number;
-    doctype: string;
-    doctypeVersion: number;
-    doctypeReadVersion?: number;
+export function floatD(defaultValue = 0) {
+    return (r: StreamReader) => {
+        const x = r.readVLIU32();
+
+        switch (x) {
+            case 0:
+                return defaultValue;
+            case 4:
+                return r.readF32();
+            case 8:
+                return r.readF64();
+            default:
+                throw new Error(`Invalid float size: ${x}`);
+        }
+    };
 }
 
-export const HEAD_PARSER = master({
-    [EBMLC.VER]: ["version", uintD(1), KN.REQ],
-    [EBMLC.READVER]: ["readVersion", uintD(1), KN.REQ],
-
-    [EBMLC.MAX_ID_LEN]: ["maxIdLength", uintD(4), KN.REQ],
-    [EBMLC.MAX_SZ_LEN]: ["maxSizeLength", uintD(8), KN.REQ],
-
-    [EBMLC.DOCTYPE]: ["doctype", string, KN.REQ],
-    [EBMLC.DOCTYPE_VER]: ["doctypeVersion", uintD(1), KN.REQ],
-    [EBMLC.DOCTYPE_READVER]: ["doctypeReadVersion", uintD(1), KN.OPT],
-
-    [EBMLC.DOCTYPE_EXT]: ["", ignore, KN.OMUL],
-});
-
-export const PARSE_SEEK = master({
-    [MKVC.SEEK.ID]: ["id", seekheadId, KN.REQ],
-    [MKVC.SEEK.POS]: ["pos", uint, KN.REQ],
-});
-
-export const PARSE_SEEKHEAD = master({
-    [MKVC.SEEK.MASTER]: ["seeks", PARSE_SEEK, KN.MUL],
-});
-
-export const PARSE_EDITION_DISP = master({
-    [MKVC.CHAPTERS.EDITION.DISP.LANG]: ["languages", string, KN.OMUL],
-    [MKVC.CHAPTERS.EDITION.DISP.STR]: ["string", string, KN.OPT],
-});
-
-export const PARSE_CHAPTER_DISPLAY = master({
-    [MKVC.CHAPTERS.EDITION.CHAPTER.DISP.STRING]: ["string", string, KN.REQ],
-    [MKVC.CHAPTERS.EDITION.CHAPTER.DISP.LANGUAGE]: ["language", string, KN.MUL],
-    [MKVC.CHAPTERS.EDITION.CHAPTER.DISP.LANGUAGE_BCP47]: [
-        "languagesBcp47",
-        string,
-        KN.OMUL,
-    ],
-    [MKVC.CHAPTERS.EDITION.CHAPTER.DISP.COUNTRY]: ["country", string, KN.OMUL],
-});
-
-export const PARSE_CHAPTER = master({
-    [MKVC.CHAPTERS.EDITION.CHAPTER.UID]: ["uid", uint, KN.OPT],
-    [MKVC.CHAPTERS.EDITION.CHAPTER.STRID]: ["strid", uint, KN.OPT],
-    [MKVC.CHAPTERS.EDITION.CHAPTER.TIME_START]: ["start", uintD(-1), KN.OPT],
-    [MKVC.CHAPTERS.EDITION.CHAPTER.TIME_END]: ["end", uintD(-1), KN.OPT],
-    [MKVC.CHAPTERS.EDITION.CHAPTER.HIDDEN]: ["hidden", uintD(1), KN.OPT],
-    [MKVC.CHAPTERS.EDITION.CHAPTER.ENABLED]: ["enabled", uintD(1), KN.OPT],
-    [MKVC.CHAPTERS.EDITION.CHAPTER.SKIPTYPE]: ["skiptype", uint, KN.OPT],
-    [MKVC.CHAPTERS.EDITION.CHAPTER.PHYS_EQUIV]: [
-        "physicalEquivalent",
-        uint,
-        KN.OPT,
-    ],
-    [MKVC.CHAPTERS.EDITION.CHAPTER.DISP.MASTER]: [
-        "display",
-        PARSE_CHAPTER_DISPLAY,
-        KN.OMUL,
-    ],
-});
-
-export const PARSE_EDITION = master({
-    [MKVC.CHAPTERS.EDITION.UID]: ["uid", uint, KN.OPT],
-    [MKVC.CHAPTERS.EDITION.HIDDEN]: ["hidden", uint, KN.OPT],
-    [MKVC.CHAPTERS.EDITION.DEFAULT]: ["default", uint, KN.OPT],
-    [MKVC.CHAPTERS.EDITION.ORDERED]: ["ordered", uint, KN.OPT],
-
-    [MKVC.CHAPTERS.EDITION.DISP.MASTER]: [
-        "diplay",
-        PARSE_EDITION_DISP,
-        KN.OMUL,
-    ],
-
-    [MKVC.CHAPTERS.EDITION.CHAPTER.MASTER]: [
-        "chapters",
-        PARSE_CHAPTER,
-        KN.OMUL,
-    ],
-});
-
-export const PARSE_CHAPTERS = master({
-    [MKVC.CHAPTERS.EDITION.MASTER]: ["editions", PARSE_EDITION, KN.MUL],
-});
-
-export const PARSE_SEGMENT = master({
-    [MKVC.SEEKHEAD]: ["seekheads", PARSE_SEEKHEAD, KN.OMUL],
-    [MKVC.CHAPTERS.MASTER]: ["chapters", PARSE_CHAPTERS, KN.OPT],
-});
+export const float = floatD(0);

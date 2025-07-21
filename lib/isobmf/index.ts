@@ -1,77 +1,24 @@
+import type { Chapter, ChapterInfo, IChapterParser } from "../common";
+
 import { assert, nn, StreamReader } from "../common";
 
-interface BoxHeader {
-    /**
-     * Offset to start of box
-     */
-    at: number;
+import type {
+    BoxHeader,
+    Ftyp,
+    FullBoxHeader,
+    MvhdData,
+    Samples,
+    StcoEntries,
+    StscEntries,
+    StszEntries,
+    SttsEntries,
+} from "./types";
 
-    /**
-     * Total size of box
-     */
-    size: number;
-
-    /**
-     * Type of box
-     */
-    name: string;
-
-    /**
-     * Offset to start of box data
-     */
-    dataOffset: number;
-
-    /**
-     * How much data is actually available
-     */
-    sizeAvailable: number;
-}
-
-interface FullBoxHeader extends BoxHeader {
-    version: number;
-    flags: number;
-}
-
-interface Chapter {
-    start: number;
-    title: string;
-}
-
-interface MvhdData {
-    duration: bigint;
-    timescale: number;
-    rate: number;
-}
-
-interface Ftyp {
-    box: BoxHeader;
-    major: string;
-    minor: number;
-    brands: string[];
-}
-
-type SttsEntries = [number, number][];
-type StscEntries = [number, number, number][];
-type StszEntries = number[] & { default: number };
-type StcoEntries = number[];
-
-interface Samples {
-    stts: SttsEntries;
-    stsc: StscEntries;
-    stsz: StszEntries;
-    stco: StcoEntries;
-}
-
-interface ChaptersData {
-    duration: number;
-    chapters: Chapter[];
-}
-
-export class ISOBMFParser {
+export class ISOBMFParser implements IChapterParser {
     protected static td = new TextDecoder("utf-8", { fatal: false });
     protected view: DataView<ArrayBuffer>;
     protected maxBytes: number;
-    protected quirks = new Set<string>()
+    protected quirks = new Set<string>();
 
     constructor(protected initialBuf: ArrayBuffer) {
         this.view = new DataView(initialBuf);
@@ -79,46 +26,18 @@ export class ISOBMFParser {
     }
 
     /**
-     * Reads file type header
-     */
-    public readFtyp(): Ftyp {
-        const ftype = this.parseBoxHeader(0);
-        assert(ftype.name === "ftyp", "non ftype header");
-
-        const major = this.str4(ftype.dataOffset);
-        const minor = this.view.getUint32(ftype.dataOffset + 4);
-
-        const brands = [] as string[];
-
-        for (let o = ftype.dataOffset + 8; o < ftype.size; o += 4) {
-            const brand = this.str4(o);
-            brands.push(brand);
-            this.quirks.add(`brand:${brand}`)
-        }
-
-        return { box: ftype, major, minor, brands };
-    }
-
-    /**
-     * fails if file isn't supported
-     */
-    public verifyFiletype(): void {
-        const r = this.readFtyp();
-        assert(r.brands.includes("iso2"), "unsupported isobmf");
-    }
-
-    /**
      * Tries to read nero/flash or quicktime chapters from the file. \
      * Will throw if anything goes wrong, will return undefined if no chapters are present.
      */
-    public getChaptersInfo(): ChaptersData | undefined {
-        const moov = this.boxes(32, this.initialBuf.byteLength).find(
+    parseChapters(): ChapterInfo | undefined {
+        const ftypeEnd = this.readFtyp().box.size;
+        const moov = this.boxes(ftypeEnd, this.initialBuf.byteLength).find(
             (x) => x.name === "moov"
         );
         if (!moov) throw new Error("Could not find moov box");
 
         if (moov.sizeAvailable !== moov.size) {
-            this.quirks.add(`partialMoov(${moov.sizeAvailable - moov.size})`)
+            this.quirks.add(`partialMoov(${moov.sizeAvailable - moov.size})`);
         }
 
         const tracks = [] as BoxHeader[];
@@ -147,10 +66,10 @@ export class ISOBMFParser {
         let chapterError: unknown | undefined;
 
         if (udta) {
-            this.quirks.add('has:udta');
+            this.quirks.add("has:udta");
             const chpl = this.boxesIn(udta).find((x) => x.name === "chpl");
             if (chpl) {
-                this.quirks.add('has:chpl');
+                this.quirks.add("has:chpl");
                 try {
                     return {
                         duration,
@@ -173,7 +92,7 @@ export class ISOBMFParser {
             .find((x) => x);
 
         if (chaptersTrack) {
-            this.quirks.add('has:chaptersTrack');
+            this.quirks.add("has:chaptersTrack");
             return {
                 duration,
                 chapters: this.readChapterSamples(chaptersTrack, timeData),
@@ -183,8 +102,37 @@ export class ISOBMFParser {
         if (chapterError) throw chapterError;
     }
 
+    /**
+     * Reads file type header
+     */
+    public readFtyp(): Ftyp {
+        const ftype = this.parseBoxHeader(0);
+        assert(ftype.name === "ftyp", "non ftype header");
+
+        const major = this.str4(ftype.dataOffset);
+        const minor = this.view.getUint32(ftype.dataOffset + 4);
+
+        const brands = [] as string[];
+
+        for (let o = ftype.dataOffset + 8; o < ftype.size; o += 4) {
+            const brand = this.str4(o);
+            brands.push(brand);
+            this.quirks.add(`brand:${brand}`);
+        }
+
+        return { box: ftype, major, minor, brands };
+    }
+
+    /**
+     * fails if file isn't supported
+     */
+    public verifyFiletype(): void {
+        const r = this.readFtyp();
+        assert(r.brands.includes("iso2"), "unsupported isobmf");
+    }
+
     public getQuirks(): string[] {
-        return [...this.quirks.values()]
+        return [...this.quirks.values()];
     }
 
     //#region Box Level APIs
@@ -213,7 +161,9 @@ export class ISOBMFParser {
         const chunkBase = nn(stco[0], "Missing stco entry");
 
         if (chunkBase > this.initialBuf.byteLength) {
-            this.quirks.add(`chaptersOOB(${this.initialBuf.byteLength - chunkBase})`)
+            this.quirks.add(
+                `chaptersOOB(${this.initialBuf.byteLength - chunkBase})`
+            );
         }
 
         const sr = new StreamReader(this.view);
@@ -222,7 +172,7 @@ export class ISOBMFParser {
             sr.seek(addr);
             chapters.push({
                 start: time,
-                title: sr.readStrPU16(),
+                title: [{ lang: "unk", text: sr.readStrPU16() }],
             });
             time += nn(times[i]);
             addr += nn(stsz[i]);
@@ -277,9 +227,9 @@ export class ISOBMFParser {
             // see the '???' comment in ffmpeg commit
             // 105b37859b97115cb686b291e93c5a588969b2d9
             sr.skip(4);
-            this.quirks.add('chpl:v1-nero')
+            this.quirks.add("chpl:v1-nero");
         } else {
-            this.quirks.add('chpl:v0-flv')
+            this.quirks.add("chpl:v0-flv");
         }
 
         const nChapters = sr.readU8();
@@ -290,7 +240,7 @@ export class ISOBMFParser {
 
             chapters.push({
                 start: Number(ts / 10000n) / 1000,
-                title: title,
+                title: [{ lang: "unk", text: title }],
             });
         }
 
@@ -466,7 +416,9 @@ export class ISOBMFParser {
                 yield box;
                 l += box.size;
             } catch (_) {
-                this.quirks.add(`warn:partial_boxes_call@[${start}-${end}, err=${l}]`)
+                this.quirks.add(
+                    `warn:partial_boxes_call@[${start}-${end}, err=${l}]`
+                );
                 return;
             }
         }
@@ -484,7 +436,7 @@ export class ISOBMFParser {
 
         assert(size !== 1, "unsupported size");
         if (name === "uuid") {
-            this.quirks.add('uuid');
+            this.quirks.add("uuid");
         }
 
         return {
@@ -509,7 +461,7 @@ export class ISOBMFParser {
 
         assert(size !== 1, "unsupported size");
         if (name === "uuid") {
-            this.quirks.add('uuid');
+            this.quirks.add("uuid");
         }
         const flagsAndVersion = this.view.getUint32(byteOffset + 8, false);
 

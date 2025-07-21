@@ -9,17 +9,17 @@ Provides an API for parsing a file's chapters into a WebVTT file. (TODO)
 ## Support
 
 ### Sources
+
 - [x] HTTP(s)
 - [x] Local filesystem (for development)
 
 ### Containers
+
 - [x] MP4
-- [ ] WebM (Matroska)
+- [x] WebM (Matroska)
 
 ### Chapter formats
+
 - [x] Flash/Nero chapters (chpl box)
 - [x] Quick Time chapters
-- [ ] Matroska chapters
-  - [ ] Simple Chapters
-  - [ ] Ordered Chapters ???
-  - [ ] Linked Chapters ???
+- [x] Matroska chapters

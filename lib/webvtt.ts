@@ -1,8 +1,4 @@
-export interface VChapter {
-    start: number;
-    end?: number;
-    title: string;
-}
+import type { ChapterCue } from "./common";
 
 interface CompleteChapter {
     start: number;
@@ -16,6 +12,8 @@ const vttEscapeMap: Record<string, string> = {
     ">": "&gt;",
     '"': "&quot;",
     "'": "&#039;",
+    "\r": "\\r",
+    "\n": "\\n",
 };
 
 function escapeWebVTT(text: string) {
@@ -27,7 +25,7 @@ function timestamp(time: number) {
     const minutes = Math.floor(time / 60) % 60;
     const seconds = time - (hours * 60 + minutes) * 60;
 
-    return `${hours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}:${seconds.toFixed(3).padStart(6, '0')}`;
+    return `${hours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}:${seconds.toFixed(3).padStart(6, "0")}`;
 }
 
 function makeVttEvent(index: number, chapter: CompleteChapter) {
@@ -35,18 +33,18 @@ function makeVttEvent(index: number, chapter: CompleteChapter) {
 }
 
 export function toWebVtt(
-    chapters: VChapter[],
+    chapters: ChapterCue[],
     duration: number,
     notes: string[]
 ) {
     const file = [
         "WEBVTT\n",
-        ...notes.map((x) => `NOTE ${x.replaceAll("\n", "\\n")}`),
-        ''
+        ...notes.map((x) => `NOTE ${escapeWebVTT(x)}`),
+        "",
     ];
 
     for (let i = 0; i < chapters.length; i++) {
-        // biome-ignore lint/style/noNonNullAssertion: TS is being dumb
+        // biome-ignore lint/style/noNonNullAssertion: contiguous array accessed by i < length
         const c = chapters[i]!;
 
         file.push(
@@ -58,5 +56,5 @@ export function toWebVtt(
         );
     }
 
-    return file.join('\n');
+    return file.join("\n");
 }

@@ -1,6 +1,7 @@
 {
     "name": "hermit-purple",
-    "module": "index.ts",
+    "version": "0.0.1",
+    "module": "src/index.ts",
     "type": "module",
     "private": true,
     "devDependencies": {
@@ -10,7 +11,5 @@
     "peerDependencies": {
         "typescript": "^5"
     },
-    "dependencies": {
-        "color": "^5.0.0"
-    }
+    "dependencies": {}
 }

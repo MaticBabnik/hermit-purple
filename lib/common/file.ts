@@ -126,7 +126,7 @@ export class HttpMediaFile implements IAsyncMediaFile {
             },
         });
 
-        const view =  await res.arrayBuffer();
+        const view = await res.arrayBuffer();
 
         assert(!requireAll || view.byteLength === size);
 
